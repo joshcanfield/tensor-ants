@@ -8,6 +8,14 @@ import Scene = Phaser.Scene;
 
 
 export class Ant extends Phaser.GameObjects.Sprite {
+    private static _idSource: number = 0;
+
+    private static nextId(): number {
+        return this._idSource++;
+    }
+
+    readonly id: number = Ant.nextId();
+
     private readonly skin: Ant.Skin;
 
     private activity = Ant.Activity.STAND;
@@ -15,6 +23,7 @@ export class Ant extends Phaser.GameObjects.Sprite {
 
     constructor(scene: Phaser.Scene, x: number, y: number, texture: string, frame?: string | integer) {
         super(scene, x, y, texture, frame);
+        this.setDisplayOrigin(64, 84);
         if (Object.keys(Ant.Skin).indexOf(texture)) {
             this.skin = <any>texture;
         } else {
@@ -29,6 +38,10 @@ export class Ant extends Phaser.GameObjects.Sprite {
     update(time: any, delta: any): void {
         super.update(time, delta);
         this.anims.update(time, delta);
+    }
+
+    public setFrameRate(frameRate: number): void {
+        this.anims.msPerFrame = 1000 / frameRate;
     }
 
     public play(): Ant {
@@ -78,7 +91,7 @@ export class Ant extends Phaser.GameObjects.Sprite {
                         {
                             key: animKey,
                             frames: scene.anims.generateFrameNumbers(skin, Ant.spriteOffset(activity, dir)),
-                            frameRate: 8, // play with this for running
+                            frameRate: 6, // play with this for running
                             yoyo: activity === Ant.Activity.ATTACK,
                             repeat: activity === Ant.Activity.WALK || activityValue === Ant.Activity.STAND ? -1 : 0,
                         }
@@ -124,6 +137,10 @@ export class Ant extends Phaser.GameObjects.Sprite {
             default:
                 return animOffset(+direction * 32, 4);
         }
+    }
+
+    protected log(message: string) {
+        console.log('id:' + this.id + ':', message);
     }
 }
 

@@ -1,5 +1,5 @@
 import 'phaser'
-import MainScene from "./scenes/main-scene";
+import MutationScene from "./scenes/mutation-scene";
 
 
 const config = {
@@ -14,7 +14,7 @@ const config = {
     width: 800,
     height: 600,
     backgroundColor: '#787878',
-    scene: MainScene
+    scene: MutationScene
 };
 
 const game = new Phaser.Game(config);

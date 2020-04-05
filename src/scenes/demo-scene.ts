@@ -5,14 +5,15 @@ import holeImg from '../assets/hole.png';
 import Group = Phaser.GameObjects.Group;
 
 /**
- * The Main Scene
+ * The Demo Scene
  *
+ * A place to demonstrate experiments
  */
-export default class MainScene extends Phaser.Scene {
+export default class DemoScene extends Phaser.Scene {
     antGroup: Group;
 
     constructor() {
-        super('mainScene');
+        super('demoScene');
     }
 
     // noinspection JSUnusedGlobalSymbols
@@ -26,7 +27,7 @@ export default class MainScene extends Phaser.Scene {
     create(): void {
         let backgroundSprite = this.add.tileSprite(0, 0, 1600, 1200, 'background');
 
-        this.add.image(50, 50, "hole");
+        this.add.image(260, 120, "hole");
         this.add.image(550, 350, "hole");
 
 
