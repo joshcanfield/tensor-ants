@@ -31,8 +31,6 @@ export class Ant extends Phaser.GameObjects.Sprite {
             console.error("Unknown texture " + texture + ". Default to " + this.skin);
         }
 
-        // We're always moving! Get it started
-        this.play();
     }
 
     update(time: any, delta: any): void {
@@ -142,6 +140,7 @@ export class Ant extends Phaser.GameObjects.Sprite {
     protected log(message: string) {
         console.log('id:' + this.id + ':', message);
     }
+
 }
 
 export enum Direction {

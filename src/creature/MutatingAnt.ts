@@ -2,6 +2,7 @@ import Ant, {Direction} from "../sprites/Ant";
 import _ from "lodash";
 import MutationScene from "../scenes/mutation-scene";
 import AntBrain from "./AntBrain";
+import Phaser from "phaser";
 
 /**
  * MutatingAnt
@@ -12,15 +13,36 @@ import AntBrain from "./AntBrain";
  *
  */
 export default class MutatingAnt extends Ant {
-    brain: AntBrain
+    /**
+     *  where we do the thinking
+     */
+    brain: AntBrain;
+
+    /**
+     *
+     */
+    health = 100;
+    /**
+     *
+     */
+    score: number = 0;
+    lastPoints: number = 0;
+
+    private static antennaAngleRadians = .5;
+    private static antennaLenFromCenter = 15;
 
     private world: MutationScene;
+    private vx: number = 0;
+    private vy: number = 0;
 
     constructor(scene: MutationScene, config: MutatingAntConfig) {
         super(scene, config.x, config.y, config.texture);
         // Save for later
         this.world = scene;
         this.brain = new AntBrain();
+
+        // We're always moving! Get it started
+        this.play();
     }
 
     deltaAccum = 0;
@@ -37,19 +59,74 @@ export default class MutatingAnt extends Ant {
         }
 
         let input = new AntBrain.Input();
-        input.food = 100; // world.getNearestFood();
+        let nearestFood = this.world.getNearestFood(this);
+
+        // TODO - "The World" should own the intensity of a detection
+        // given the location of this ant calculate the intensity of "sense" value that it has
+        let foodStrength = 1000;
+
+        let points = 0;
+        if (nearestFood.distance < foodStrength) {
+            points = Math.max(0, (
+                -Math.pow(nearestFood.distance - foodStrength, 3) / Math.pow(foodStrength, 2)) + foodStrength
+            );
+        }
+        // you only get points if you're moving toward the food.
+        if (points > this.lastPoints) {
+            this.score += Math.floor(points);
+        }
+        this.lastPoints = points;
+        let antenna = this.getAntennaPositions();
+
+        // TODO: Apply the scoring
+        input.antennaRight = Phaser.Math.Distance.Between(antenna.right.x, antenna.right.y, nearestFood.food.x, nearestFood.food.y);
+        input.antennaLeft = Phaser.Math.Distance.Between(antenna.left.x, antenna.left.y, nearestFood.food.x, nearestFood.food.y);
+
         if (!this.thinkingStartMs) {
             this.thinkingStartMs = window.performance.now();
-            this.brain.think(input).then(this.handleThinkOutput);
+            this.brain.think(input)
+                .then(this.handleThinkOutput, () => console.log('rejected'))
+                .then(() => this.thinkingStartMs = 0); // reset timer
         } else {
             // console.log("Still thinking!" + (window.performance.now() - this.thinkingStartMs) + "ms");
+            this.move();
         }
         this.setFrameRate(_.random(2, 10));
     }
 
+    public getAntennaPositions() {
+        return {
+            right: {
+                x: MutatingAnt.antennaLenFromCenter * Math.cos(MutatingAnt.antennaAngleRadians - this._angleRad),
+                y: MutatingAnt.antennaLenFromCenter * Math.sin(MutatingAnt.antennaAngleRadians - this._angleRad)
+            },
+            left: {
+                x: MutatingAnt.antennaLenFromCenter * Math.cos(-MutatingAnt.antennaAngleRadians - this._angleRad),
+                y: MutatingAnt.antennaLenFromCenter * Math.sin(-MutatingAnt.antennaAngleRadians - this._angleRad)
+            }
+        };
+    }
+
+    private move() {
+        if (_.isFinite(this.vx) && _.isFinite(this.vy)) {
+            this.x = this.x + this.vx;
+            this.y = this.y + this.vy;
+        } else {
+            console.log('bad vx/vy');
+            debugger
+        }
+        if (!_.isFinite(this.x) || !_.isFinite(this.y)) {
+            console.log('bad x/y');
+            debugger
+        }
+    }
+
+    getScore(): number {
+        return this.score;
+    }
+
     /**
-     * Odd format to keep `this` context
-     * private fn = () => {}
+     * keeping `this` context by using 'private fn = () => {}' format
      */
     private handleThinkOutput = (output: AntBrain.Output) => {
         let adjustRadians = Math.PI * (output.left - output.right);
@@ -63,21 +140,18 @@ export default class MutatingAnt extends Ant {
             this._angleRad -= 2 * Math.PI;
         }
         this.pickDirection(this._angleRad);
-        let vx = Math.floor(this.speed * Math.cos(this._angleRad));
-        let vy = -Math.floor(this.speed * Math.sin(this._angleRad));
-        this.x = this.x + vx;
-        this.y = this.y + vy;
+        this.vx = Math.floor(this.speed * Math.cos(this._angleRad));
+        this.vy = -Math.floor(this.speed * Math.sin(this._angleRad));
+        this.move();
 
-        this.thinkingStartMs = 0;
     }
 
     // 45 degrees
-    private static PI_OVER_4 = Math.PI / 4;
     private static PI_OVER_8 = Math.PI / 8;
 
     private static radiansToDirection = [
         {radians: 0, dir: Direction.RIGHT},
-        {radians: MutatingAnt.PI_OVER_4, dir: Direction.UP_RIGHT},
+        {radians: Math.PI / 4, dir: Direction.UP_RIGHT},
         {radians: Math.PI / 2, dir: Direction.UP},
         {radians: 3 * Math.PI / 4, dir: Direction.UP_LEFT},
         {radians: Math.PI, dir: Direction.LEFT},
@@ -98,8 +172,14 @@ export default class MutatingAnt extends Ant {
             }
         }
         this.setDirection(found.dir);
-        let adjusted = radians - found.radians;
-        this.setRotation(-adjusted);
+        let adjusted = found.radians - radians;
+        this.setRotation(adjusted);
+    }
+
+    replaceBrain(brain: AntBrain) {
+        // clean up the brain
+        this.brain.dispose();
+        this.brain = brain;
     }
 }
 
