@@ -10,6 +10,7 @@ import Group = Phaser.GameObjects.Group;
 import Text = Phaser.GameObjects.Text;
 import Arc = Phaser.GameObjects.Arc;
 
+const matingPairs = 2; // 2 pairs = 4
 /**
  * The Mutation Scene
  *
@@ -21,8 +22,13 @@ export default class MutationScene extends Phaser.Scene {
 
     public graphics: Phaser.GameObjects.Graphics;
     private scoreBoard: Text;
-    private topFiveLabels: Text[] = [];
+    private topScoresLabel: Text[] = [];
     private antenna: Arc[] = [];
+    private lines: any [] = [];
+    private lastScoreHash: number;
+    private highScore: number = 0;
+    private highScoreGens: number[] = [];
+    private highScoreBrain: AntBrain;
 
     constructor() {
         super('mutationScene');
@@ -36,6 +42,8 @@ export default class MutationScene extends Phaser.Scene {
     }
 
     // noinspection JSUnusedGlobalSymbols
+    private readonly FOOD = 10;
+
     create(): void {
         // this.physics.startSystem(Phaser.Physics.ARCADE);
 
@@ -47,30 +55,29 @@ export default class MutationScene extends Phaser.Scene {
         let background = this.add.tileSprite(0, 0, 1600, 1200, 'background');
         background.setDepth(0);
 
-        this.add.image(100, 100, "hole");
+        this.add.image(400, 300, "hole");
         Ant.init(this);
 
         this.foodGroup = this.add.group({classType: Ant, runChildUpdate: true});
 
-        for (let i = 0; i < 5; ++i) {
+        for (let i = 0; i < this.FOOD; ++i) {
             let food = new Ant(this, 300, 300, Ant.Skin.FIRE_ANT);
             this.placeRandomly(food);
             this.foodGroup.add(food, true);
             food.setActivity(Ant.Activity.CRIT_DIE);
             food.setDepth(10);
             food.setActive(true);
-
         }
 
-        const CREATURES = 20;
+        const CREATURES = 30;
         this.antGroup = this.add.group({classType: MutatingAnt, runChildUpdate: true});
 
         // create all the creatures
         for (let i = 0; i < CREATURES; ++i) {
 
             // get spawn point
-            let startX = 100;
-            let startY = 100;
+            let startX = 400;
+            let startY = 300;
 
             let ant = new MutatingAnt(this, {x: startX, y: startY, texture: Ant.Skin.FIRE_ANT});
             this.antGroup.add(ant, true);
@@ -78,11 +85,14 @@ export default class MutationScene extends Phaser.Scene {
             ant.setDepth(CREATURES - i);
             ant.setActive(true);
 
-            this.antenna[2 * i] = this.add.circle(100, 100, 5, 0xFF0000);
+            this.antenna[2 * i] = this.add.circle(400, 300, 5, 0xFF0000);
             this.antenna[2 * i].setDepth(CREATURES + 1);
 
             this.antenna[2 * i + 1] = this.add.circle(100, 100, 5, 0x00FF00);
             this.antenna[2 * i + 1].setDepth(CREATURES + 1);
+
+            this.lines[i] = this.add.line(0, 0, 100, 100, 200, 200, 0xB3FFCC);
+            this.lines[i].setDepth(CREATURES + 1);
         }
 
 
@@ -90,8 +100,8 @@ export default class MutationScene extends Phaser.Scene {
         this.scoreBoard.setDepth(CREATURES + 1);
 
         for (let i = 0; i < 5; ++i) {
-            this.topFiveLabels[i] = this.add.text(100, 100, '' + (i + 1));
-            this.topFiveLabels[i].setDepth(CREATURES + 1);
+            this.topScoresLabel[i] = this.add.text(100, 100, '' + (i + 1));
+            this.topScoresLabel[i].setDepth(CREATURES + 1);
         }
     }
 
@@ -103,6 +113,8 @@ export default class MutationScene extends Phaser.Scene {
      */
     static maxGenerationTime = 20_000;
     static currentGenerationTime = 0;
+    static maxScoreStaleTime = 2000;
+    static currentScoreStaleTime = 0;
     static generationCount = 1;
 
     static scoreboardUpdateInterval = 500;
@@ -110,7 +122,6 @@ export default class MutationScene extends Phaser.Scene {
     static consumedFood: Set<Ant> = new Set<Ant>();
 
     update(time: number, delta: number): void {
-        let scored: any[] = [];
         // score the children, pick best one replace the others brain with mutated
         let mutatingAnts = <MutatingAnt[]>this.antGroup.getChildren();
 
@@ -118,38 +129,65 @@ export default class MutationScene extends Phaser.Scene {
         for (let i = 0; i < mutatingAnts.length; i++) {
             let ant = mutatingAnts[i];
             let antennaPositions = ant.getAntennaPositions();
+            let nearestFood = this.getNearestFood(ant);
 
-            this.antenna[2 * i].x = ant.x + antennaPositions.right.x;
-            this.antenna[2 * i].y = ant.y + antennaPositions.right.y;
-            this.antenna[2 * i + 1].x = ant.x + antennaPositions.left.x;
-            this.antenna[2 * i + 1].y = ant.y + antennaPositions.left.y;
+            this.lines[i].setTo(
+                nearestFood.food.x + 64, nearestFood.food.y + 64,
+                ant.x + 64, ant.y + 64
+            );
+            if ( nearestFood.distance > 500 ) {
+                this.lines[i].setFillStyle(0xFF0000);
+            } else {
+                this.lines[i].setFillStyle(0xFFFF00);
+            }
+
+            this.antenna[2 * i].x = antennaPositions.right.x;
+            this.antenna[2 * i].y = antennaPositions.right.y;
+            this.antenna[2 * i + 1].x = antennaPositions.left.x;
+            this.antenna[2 * i + 1].y = antennaPositions.left.y;
         }
 
-        scored = _.sortBy(mutatingAnts, ['score']).reverse();
+        let scored: any[] = _.sortBy(mutatingAnts, ['score']).reverse();
 
         MutationScene.scoreboardIntervalTime += delta;
         if (MutationScene.scoreboardIntervalTime > MutationScene.scoreboardUpdateInterval) {
+            let scoreHash = scored.slice(0, 5).map((ant) => ant.score).reduce((p, c) => p + c);
+            if (scoreHash === this.lastScoreHash) {
+                MutationScene.currentScoreStaleTime += delta;
+                if (MutationScene.currentScoreStaleTime > MutationScene.maxScoreStaleTime) {
+                    MutationScene.currentScoreStaleTime = 0;
+                    MutationScene.currentGenerationTime = Number.MAX_VALUE;
+                    console.log("Resetting due to no progress");
+                }
+            } else {
+                MutationScene.currentScoreStaleTime = 0;
+                this.lastScoreHash = scoreHash;
+            }
             // update scoreboard
             this.updateScoreboard(scored);
 
-            for (let i = 0; i < this.topFiveLabels.length; ++i) {
-                this.topFiveLabels[i].x = scored[i].x;
-                this.topFiveLabels[i].y = scored[i].y;
+            for (let i = 0; i < this.topScoresLabel.length; ++i) {
+                this.topScoresLabel[i].x = scored[i].x;
+                this.topScoresLabel[i].y = scored[i].y;
             }
         }
         MutationScene.consumedFood.forEach((ant) => {
             this.placeRandomly(ant);
+            // ant.setActive(false);
+            // ant.setVisible(false);
         })
         MutationScene.consumedFood.clear();
 
         MutationScene.currentGenerationTime += delta;
-        if (MutationScene.currentGenerationTime > MutationScene.maxGenerationTime) {
+        if (MutationScene.currentGenerationTime >= MutationScene.maxGenerationTime) {
             ++MutationScene.generationCount;
             MutationScene.currentGenerationTime = 0;
             // move the food
             let food = <Ant[]>this.foodGroup.getChildren();
             food.forEach(food => {
                 this.placeRandomly(food);
+                food.setActive(true);
+                food.setVisible(true);
             })
             // kill all the creatures
             mutatingAnts.forEach((ant) => ant.setActive(false));
@@ -157,10 +195,22 @@ export default class MutationScene extends Phaser.Scene {
             // breed the top scorers (make babies)
             // create a new generation using mutations of the baby brains
 
-            let bestBrain = scored[0].brain;
+            if (scored[0].score > this.highScore) {
+                this.highScoreBrain = scored[0].brain.mutate(0);
+                this.highScore = scored[0].score;
+                this.highScoreGens.unshift(MutationScene.generationCount - 1);
+                if (this.highScoreGens.length > 10) {
+                    this.highScoreGens.pop();
+                }
+            } else {
+                console.log("keeping high score brain!");
+                scored.unshift({score: this.highScore, brain: this.highScoreBrain});
+            }
+            console.log(scored.map((ant) => ant.score));
+
             let archetypeBabyBrains: AntBrain[] = [];
             // randomly pull pairs to mate and create archetype baby brains
-            let shuffled = _.shuffle(scored.slice(0, 2));
+            let shuffled = _.shuffle(scored.slice(0, matingPairs * 2));
             while (shuffled.length >= 2) {
                 let mom = <MutatingAnt>shuffled.shift();
                 let dad = <MutatingAnt>shuffled.shift();
@@ -169,16 +219,24 @@ export default class MutationScene extends Phaser.Scene {
 
             // A little brain surgery
             mutatingAnts.forEach((ant, i) => {
-                if (i == 0) {
-                    // get a copy of the best brain
-                    ant.replaceBrain(bestBrain.mutate(0));
-                } else if (i == 0) {
+                if (i === 0) {
+                    // always keep the high score
+                    ant.replaceBrain(this.highScoreBrain.mutate(0));
+                    console.log('high score brain');
+                } else if (i < matingPairs * 2) {
+                    // lower mutation of top score brains
+                    ant.replaceBrain(scored[i].brain.mutate(.1));
+                    console.log('mating Pair brain');
+                } else if (Math.random() < .1) { // 10% random
                     // use a completely random brain
                     ant.replaceBrain(new AntBrain())
+                    console.log('random brain');
                 } else {
                     // grab a random baby brain
                     let sample = _.sample(archetypeBabyBrains);
                     ant.replaceBrain(sample.mutate(.3));
+                    // ant.replaceBrain(this.highScoreBrain.mutate(.3));
+                    console.log('bred brain');
                 }
                 this.spawnAnt(ant);
             })
@@ -189,8 +247,8 @@ export default class MutationScene extends Phaser.Scene {
     }
 
     private placeRandomly(food: Ant) {
-        food.x = _.random(200, 800);
-        food.y = _.random(200, 600);
+        food.x = _.random(0, 800);
+        food.y = _.random(0, 600);
     }
 
     private updateScoreboard(scored: any[]) {
@@ -203,6 +261,7 @@ export default class MutationScene extends Phaser.Scene {
         let timeRemaining = (MutationScene.maxGenerationTime - MutationScene.currentGenerationTime) / 1000;
         const debug = [
             `Time Remaining: ${timeRemaining.toFixed(2)}; Generation: ${MutationScene.generationCount}`,
+            `High Score: ${this.highScore.toFixed(2)} - ${this.highScoreGens}`,
             `Top Scores: ${topScores[0]} \n` + topScores,
             `Bottom: ${topScores[topScores.length - 1]} \n` + formatScore(scored[scored.length - 1])
         ];
@@ -210,29 +269,32 @@ export default class MutationScene extends Phaser.Scene {
         this.scoreBoard.setText(debug);
     }
 
-    getNearestFood(ant: Ant) {
+    getNearestFood(ant: MutatingAnt) {
         let d = Number.MAX_VALUE;
         let children = this.foodGroup.getChildren();
         let closest;
         for (let i = 0; i < children.length; ++i) {
             let c = <Ant>children[i]
+            if (!c.active) {
+                continue;
+            }
             let dist = Phaser.Math.Distance.Between(ant.x, ant.y, c.x, c.y);
             if (dist < d) {
                 d = dist;
                 closest = c;
             }
-            if (dist < 30){
+            if (dist < 30) {
                 MutationScene.consumedFood.add(c);
+                ant.score += 100;
             }
         }
         return {food: closest, distance: d};
     }
 
     private spawnAnt(ant: MutatingAnt) {
-        ant.x = 100;
-        ant.y = 100;
-        ant.score = 0;
-
+        ant.x = 400;
+        ant.y = 300;
+        ant.reset();
         ant.setActive(true);
     }
 }

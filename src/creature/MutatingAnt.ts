@@ -16,24 +16,22 @@ export default class MutatingAnt extends Ant {
     /**
      *  where we do the thinking
      */
-    brain: AntBrain;
+    public brain: AntBrain;
+    public score: number = 0;
 
-    /**
-     *
-     */
-    health = 100;
-    /**
-     *
-     */
-    score: number = 0;
-    lastPoints: number = 0;
+    private lastPoints: number = 0;
+    private deltaAccum = 0;
+    private thinkingStartMs: number
 
-    private static antennaAngleRadians = .5;
-    private static antennaLenFromCenter = 15;
-
-    private world: MutationScene;
+    private angleRad = 0;
     private vx: number = 0;
     private vy: number = 0;
+    private speed = 5;
+
+    private static antennaAngleRadians = .5;
+    private static antennaLenFromCenter = 25;
+
+    private world: MutationScene;
 
     constructor(scene: MutationScene, config: MutatingAntConfig) {
         super(scene, config.x, config.y, config.texture);
@@ -41,20 +39,27 @@ export default class MutatingAnt extends Ant {
         this.world = scene;
         this.brain = new AntBrain();
 
+
         // We're always moving! Get it started
         this.play();
     }
 
-    deltaAccum = 0;
-    _angleRad = 0;
+    reset() {
+        this.score = 0;
+        this.lastPoints = 0;
+        this.deltaAccum = 0;
+        this.angleRad = 0;
+        this.thinkingStartMs = 0;
+        this.vx = 0;
+        this.vy = 0;
 
-    thinkingStartMs: number
-    speed = 5;
+        this.setRotation(0);
+    }
 
     protected preUpdate(time: number, delta: number): void {
         super.update(time, delta);
         this.deltaAccum += delta;
-        if (this.deltaAccum <= 150) {
+        if (this.deltaAccum <= 100) {
             return;
         }
 
@@ -63,24 +68,22 @@ export default class MutatingAnt extends Ant {
 
         // TODO - "The World" should own the intensity of a detection
         // given the location of this ant calculate the intensity of "sense" value that it has
-        let foodStrength = 1000;
 
-        let points = 0;
-        if (nearestFood.distance < foodStrength) {
-            points = Math.max(0, (
-                -Math.pow(nearestFood.distance - foodStrength, 3) / Math.pow(foodStrength, 2)) + foodStrength
-            );
-        }
+        let distance = nearestFood.distance;
+        let points = this.calcIntensity(distance) * 10;
+
         // you only get points if you're moving toward the food.
-        if (points > this.lastPoints) {
-            this.score += Math.floor(points);
-        }
+        // if (points > this.lastPoints) {
+            this.score += points - this.lastPoints;
+        // }
         this.lastPoints = points;
         let antenna = this.getAntennaPositions();
 
         // TODO: Apply the scoring
-        input.antennaRight = Phaser.Math.Distance.Between(antenna.right.x, antenna.right.y, nearestFood.food.x, nearestFood.food.y);
-        input.antennaLeft = Phaser.Math.Distance.Between(antenna.left.x, antenna.left.y, nearestFood.food.x, nearestFood.food.y);
+        input.antennaRight = this.calcIntensity(
+            Phaser.Math.Distance.Between(antenna.right.x, antenna.right.y, nearestFood.food.x, nearestFood.food.y));
+        input.antennaLeft = this.calcIntensity(
+            Phaser.Math.Distance.Between(antenna.left.x, antenna.left.y, nearestFood.food.x, nearestFood.food.y));
 
         if (!this.thinkingStartMs) {
             this.thinkingStartMs = window.performance.now();
@@ -94,15 +97,32 @@ export default class MutatingAnt extends Ant {
         this.setFrameRate(_.random(2, 10));
     }
 
+    private calcIntensity(distance: number) {
+        let foodStrength = 500; // TODO: should come from the food.. maybe decline over time?
+        let points = 0;
+        /**
+         * https://www.desmos.com/calculator/3fisjexbvp
+         * y=-\frac{\left(x-100\right)^{3}}{100^{2}}
+         */
+        if (distance < foodStrength) {
+            points = Math.max(0, (
+                -Math.pow(distance - foodStrength, 3) / Math.pow(foodStrength, 2))
+            );
+        }
+        return points / foodStrength;
+    }
+
     public getAntennaPositions() {
+        let len = MutatingAnt.antennaLenFromCenter;
+        let angleRadians = MutatingAnt.antennaAngleRadians;
         return {
             right: {
-                x: MutatingAnt.antennaLenFromCenter * Math.cos(MutatingAnt.antennaAngleRadians - this._angleRad),
-                y: MutatingAnt.antennaLenFromCenter * Math.sin(MutatingAnt.antennaAngleRadians - this._angleRad)
+                x: this.x + len * Math.cos(angleRadians - this.angleRad),
+                y: this.y + len * Math.sin(angleRadians - this.angleRad)
             },
             left: {
-                x: MutatingAnt.antennaLenFromCenter * Math.cos(-MutatingAnt.antennaAngleRadians - this._angleRad),
-                y: MutatingAnt.antennaLenFromCenter * Math.sin(-MutatingAnt.antennaAngleRadians - this._angleRad)
+                x: this.x + len * Math.cos(-angleRadians - this.angleRad),
+                y: this.y + len * Math.sin(-angleRadians - this.angleRad)
             }
         };
     }
@@ -129,24 +149,43 @@ export default class MutatingAnt extends Ant {
      * keeping `this` context by using 'private fn = () => {}' format
      */
     private handleThinkOutput = (output: AntBrain.Output) => {
-        let adjustRadians = Math.PI * (output.left - output.right);
+        let adjustRadians = this.calculateDirection(output);
+        let speed = this.speed * (1 + (output.left + output.right) / 2);
 
         this.deltaAccum = 0;
-        this._angleRad += adjustRadians;
-        if (this._angleRad < 0) {
-            this._angleRad = 2 * Math.PI + this._angleRad;
+        this.angleRad += adjustRadians;
+        if (this.angleRad < 0) {
+            this.angleRad = 2 * Math.PI + this.angleRad;
         }
-        while (this._angleRad > 2 * Math.PI) {
-            this._angleRad -= 2 * Math.PI;
+        while (this.angleRad > 2 * Math.PI) {
+            this.angleRad -= 2 * Math.PI;
         }
-        this.pickDirection(this._angleRad);
-        this.vx = Math.floor(this.speed * Math.cos(this._angleRad));
-        this.vy = -Math.floor(this.speed * Math.sin(this._angleRad));
+        this.pickDirection(this.angleRad);
+        this.vx = Math.floor(speed * Math.cos(this.angleRad));
+        this.vy = -Math.floor(speed * Math.sin(this.angleRad));
         this.move();
 
     }
 
-    // 45 degrees
+    private calculateDirection(output: AntBrain.Output) {
+        const turnRadians = Math.PI / 8;
+        if ( output.left > output.right ) {
+           return turnRadians;
+        } else {
+            return -turnRadians;
+        }
+
+        /*
+        let leftScale = output.left;
+        let rightScale = output.right;
+        // cos(θ) = adjacent/hypotenuse = x / radius = x / 1
+        let cosTheta = leftScale - rightScale; // lifting more left turns more right
+        let adjustRadians = (Math.PI / 2) - Math.acos(cosTheta);
+        return {leftScale, rightScale, adjustRadians};
+     */
+    }
+
+// 45 degrees
     private static PI_OVER_8 = Math.PI / 8;
 
     private static radiansToDirection = [
