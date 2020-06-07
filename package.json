@@ -3,14 +3,14 @@
   "version": "0.0.1",
   "description": "Learning to play with genetic algorithms",
   "private": true,
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "scripts": {
     "build": "webpack --config webpack/prod.js ",
     "start": "webpack-dev-server --config webpack/base.js",
     "test": "jest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.9.0",
     "@babel/preset-env": "^7.9.0",
@@ -18,6 +18,7 @@
     "@jest/globals": "^25.5.2",
     "@types/jest": "^25.2.1",
     "@types/lodash": "^4.14.149",
+    "canvas": "^2.6.1",
     "clean-webpack-plugin": "^3.0.0",
     "file-loader": "^5.1.0",
     "html-webpack-plugin": "^3.2.0",
@@ -29,13 +30,14 @@
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
-    "webpack-dev-server": "^3.10.3",
+    "webpack-dev-server": "^3.11.0",
     "webpack-merge": "^4.2.2"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^1.7.1",
     "lodash": "^4.17.15",
     "phaser": "^3.22.0",
-    "synaptic": "^1.1.4"
+    "synaptic": "^1.1.4",
+    "ts-mixer": "^5.2.1"
   }
 }

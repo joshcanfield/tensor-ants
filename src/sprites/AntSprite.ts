@@ -1,94 +1,108 @@
 import 'phaser'
+import Scene = Phaser.Scene;
+
 // https://opengameart.org/content/antlion
 import antLionImg from '../assets/antlion_0.png';
 import fireAntImg from '../assets/fire_ant.png';
 import iceAntImg from '../assets/ice_ant.png';
+
+import Ant from "../model/Ant";
+import Direction from "../model/Direction";
+
 import _ from 'lodash';
-import Scene = Phaser.Scene;
 
+/**
+ * Manage rendering the ant model
+ */
+export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite {
 
-export class Ant extends Phaser.GameObjects.Sprite {
-    private static _idSource: number = 0;
-
-    private static nextId(): number {
-        return this._idSource++;
+    get ant(): T {
+        return this._ant;
     }
 
-    readonly id: number = Ant.nextId();
+    set ant(value: T) {
+        if (!(value instanceof Ant)) {
+            debugger
+        }
+        this._ant = value;
+    }
 
-    private readonly skin: Ant.Skin;
+    private _ant: T;
+    private readonly skin: AntSprite.Skin;
 
-    private activity = Ant.Activity.STAND;
-    private direction = Direction.LEFT;
-
-    constructor(scene: Phaser.Scene, x: number, y: number, texture: string, frame?: string | integer) {
+    protected constructor(scene: Phaser.Scene, x: number, y: number, texture: string, frame?: string | integer) {
         super(scene, x, y, texture, frame);
         this.setDisplayOrigin(64, 84);
-        if (Object.keys(Ant.Skin).indexOf(texture)) {
+
+        if (Object.keys(AntSprite.Skin).indexOf(texture)) {
             this.skin = <any>texture;
         } else {
-            this.skin = Ant.Skin.ANT_LION;
+            this.skin = AntSprite.Skin.ANT_LION;
             console.error("Unknown texture " + texture + ". Default to " + this.skin);
         }
-
     }
 
     update(time: any, delta: any): void {
         super.update(time, delta);
         this.anims.update(time, delta);
+        // move with the ant
+        this.x = this.ant.x;
+        this.y = this.ant.y;
     }
 
     public setFrameRate(frameRate: number): void {
         this.anims.msPerFrame = 1000 / frameRate;
     }
 
-    public play(): Ant {
-        super.play(Ant.buildAnimKey(this.skin, this.direction, this.activity));
+    public play(): AntSprite<T> {
+        let key = AntSprite.buildAnimKey(this.skin, this._ant.direction, this._ant.activity);
+        let currentKey = this.anims?.currentAnim?.key;
+        if (currentKey != key) {
+            super.play(key);
+        }
         return this;
     }
 
-    public getDirection(): Direction {
-        return this.direction;
-    }
-
     public setDirection(dir: Direction) {
-        if (this.direction != dir) {
-            this.direction = dir;
-            this.play();
+        if (this._ant.direction == dir) {
+            return;
         }
+        this._ant.direction = dir;
+        this.play();
     }
 
     public getActivity(): Ant.Activity {
-        return this.activity;
+        return this._ant.activity;
     }
 
     public setActivity(newActivity: Ant.Activity) {
-        if (this.activity != newActivity) {
-            this.activity = newActivity;
-            this.play();
+        if (this._ant.activity == newActivity) {
+            return;
         }
+        this._ant.activity = newActivity;
+        this.play();
     }
 
     static preload(scene: Scene) {
         let antFrameConfig = {frameWidth: 128, frameHeight: 128};
-        scene.load.spritesheet(Ant.Skin.ANT_LION, antLionImg, antFrameConfig);
-        scene.load.spritesheet(Ant.Skin.FIRE_ANT, fireAntImg, antFrameConfig);
-        scene.load.spritesheet(Ant.Skin.ICE_ANT, iceAntImg, antFrameConfig);
+        scene.load.spritesheet(AntSprite.Skin.ANT_LION, antLionImg, antFrameConfig);
+        scene.load.spritesheet(AntSprite.Skin.FIRE_ANT, fireAntImg, antFrameConfig);
+        scene.load.spritesheet(AntSprite.Skin.ICE_ANT, iceAntImg, antFrameConfig);
     }
 
     static init(scene: Scene) {
         // create animation for each skin, direction and activity
-        Object.values(Ant.Skin).forEach((skinValue) => {
-            let skin: Ant.Skin = <any>skinValue;
+        Object.values(AntSprite.Skin).forEach((skinValue) => {
+            let skin: AntSprite.Skin = <any>skinValue;
             Object.values(Direction).filter(isFinite).forEach((dirValue) => {
                 let dir: Direction = <any>dirValue;
                 Object.values(Ant.Activity).forEach((activityValue) => {
                     let activity: Ant.Activity = <any>activityValue;
-                    let animKey = Ant.buildAnimKey(skin, dir, activity);
+                    let animKey = AntSprite.buildAnimKey(skin, dir, activity);
                     scene.anims.create(
                         {
                             key: animKey,
-                            frames: scene.anims.generateFrameNumbers(skin, Ant.spriteOffset(activity, dir)),
+                            frames: scene.anims.generateFrameNumbers(skin, AntSprite.spriteOffset(activity, dir)),
                             frameRate: 6, // play with this for running
                             yoyo: activity === Ant.Activity.ATTACK,
                             repeat: activity === Ant.Activity.WALK || activityValue === Ant.Activity.STAND ? -1 : 0,
@@ -102,7 +116,7 @@ export class Ant extends Phaser.GameObjects.Sprite {
     /**
      * Build the animation key for the specific skin, direction and activity
      */
-    static buildAnimKey(skin: Ant.Skin, dir: Direction, activity: Ant.Activity) {
+    static buildAnimKey(skin: AntSprite.Skin, dir: Direction, activity: Ant.Activity) {
         return skin + '_' + activity + '_' + dir;
     }
 
@@ -138,37 +152,22 @@ export class Ant extends Phaser.GameObjects.Sprite {
     }
 
     protected log(message: string) {
-        console.log('id:' + this.id + ':', message);
+        console.log('id:' + this._ant.id + ':', message);
+    }
+
+    relocate(x: number, y: number) {
+        this.ant.x = x;
+        this.ant.y = y;
     }
 
 }
 
-export enum Direction {
-    LEFT = 0,
-    UP_LEFT,
-    UP,
-    UP_RIGHT,
-    RIGHT,
-    DOWN_RIGHT,
-    DOWN,
-    DOWN_LEFT,
-}
-
-export namespace Ant {
+export namespace AntSprite {
     export enum Skin {
         ANT_LION = 'ant-lion',
         FIRE_ANT = 'fire-ant',
         ICE_ANT = 'ice-ant',
     }
-
-    export enum Activity {
-        STAND = 'stand',
-        WALK = 'walk',
-        ATTACK = 'attack',
-        BLOCK = 'block',
-        HIT_DIE = 'hit-die',
-        CRIT_DIE = 'crit-die',
-    }
 }
 
-export default Ant;
+export default AntSprite;

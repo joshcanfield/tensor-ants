@@ -1,8 +1,9 @@
 import 'phaser'
-import Ant from "../sprites/Ant";
+import AntSprite from "../sprites/AntSprite";
 import grassImg from '../assets/grass.jpg';
 import holeImg from '../assets/hole.png';
 import Group = Phaser.GameObjects.Group;
+import Ant from "../model/Ant";
 
 /**
  * The Demo Scene
@@ -18,7 +19,7 @@ export default class DemoScene extends Phaser.Scene {
 
     // noinspection JSUnusedGlobalSymbols
     preload(): void {
-        Ant.preload(this)
+        AntSprite.preload(this)
         this.load.image('background', grassImg);
         this.load.image('hole', holeImg);
     }
@@ -31,11 +32,11 @@ export default class DemoScene extends Phaser.Scene {
         this.add.image(550, 350, "hole");
 
 
-        Ant.init(this);
+        AntSprite.init(this);
 
         const CREATURES = 10;
         this.cameras.main.setBackgroundColor('#207621');
-        this.antGroup = this.add.group({classType: Ant, runChildUpdate: false});
+        this.antGroup = this.add.group({classType: AntSprite, runChildUpdate: false});
 
         // create all the creatures
         for (let i = 0; i < CREATURES; ++i) {
@@ -43,7 +44,7 @@ export default class DemoScene extends Phaser.Scene {
             let startX = 100 + (i % 5 * 80);
             let startY = 100 + (Math.floor(i / 5) * 80);
 
-            let ant = <Ant>this.antGroup.get(startX, startY, Ant.Skin.FIRE_ANT, 0, true);
+            let ant = <AntSprite<Ant>>this.antGroup.get(startX, startY, AntSprite.Skin.FIRE_ANT, 0, true);
 
             let activities = Object.values(Ant.Activity);
 

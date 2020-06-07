@@ -1,86 +1,114 @@
 import * as tf from '@tensorflow/tfjs';
 import _ from 'lodash';
 
-class AntBrain {
+const DEBUG_WEIGHTS = false;
 
+class AntBrain {
     private _model: tf.Sequential;
-    private inputs: number[][] = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]];
+
+    /**
+     * How many input iterations should we remember and pass into the model?
+     * TODO: Should this vary by mutation/breeding?
+     */
+    readonly memorySize: number;
+
+    /**
+     * Holds a copy of the memories. New values are rotated in.
+     */
+    private inputMemory: number[][];
+
     private disposed = false;
 
-    constructor() {
+    constructor(memorySize: number) {
+        this.memorySize = memorySize;
+        this.inputMemory = [];
+
+        // Memory needs to be populated before we start
+        const defaultInput = new AntBrain.Input().toArray();
+        for (let i = 0; i < memorySize; ++i) {
+            this.inputMemory.push(defaultInput);
+        }
+
         this.createModel();
     }
 
     /**
-     * Creates network with 2 inputs, 3 memory layers and 2 output values
+     * Creates network based on the size of AntBrain.Input and AntBrain.Output
      */
     private createModel() {
+        let _this = this;
         // if you don't tidy then you leak tensors when you dispose
         tf.tidy(() => {
+            let inputShape = [_this.memorySize * AntBrain.Input.size];
+
             this._model = tf.sequential();
+
             // hidden
-            this._model.add(
-                tf.layers.dense({
-                    units: 8, // neurons
-                    inputShape: [1, 5, 2], // input matrix
-                    useBias: true,
-                    trainable: false,
-                    activation: 'sigmoid',
-                    kernelInitializer: "randomNormal",
-                    biasInitializer: "randomNormal",
-                }));
+            this._model.add(tf.layers.dense({
+                units: 8, // neurons
+                inputShape: inputShape, // input matrix
+                useBias: true,
+                trainable: false,
+                activation: 'sigmoid',
+                kernelInitializer: "randomNormal",
+                biasInitializer: "randomNormal",
+            }));
             // output
-            this._model.add(
-                tf.layers.dense({
-                    units: 2,
-                    useBias: true,
-                    trainable: false,
-                    activation: 'softmax',
-                    kernelInitializer: "randomNormal",
-                    biasInitializer: "randomNormal",
-                }));
+            this._model.add(tf.layers.dense({
+                units: AntBrain.Output.size,
+                batchSize: 1,
+                useBias: true,
+                trainable: false,
+                activation: 'softmax',
+                kernelInitializer: "randomNormal",
+                biasInitializer: "randomNormal",
+            }));
+
+            // this._model.summary();
         });
     }
 
     public async think(input: AntBrain.Input): Promise<AntBrain.Output> {
         let _this = this;
-        return new Promise<AntBrain.Output>((resolve, reject) => {
-            // user web workers to be truly async
-            setTimeout(function () {
-                tf.tidy(() => {
-                    if (_this.isDisposed()) {
-                        // don't think if we've already been disposed
-                        reject();
-                        return;
-                    }
-                    let items = [input.antennaLeft, input.antennaRight];
-                    _this.inputs.unshift(items);
-                    _this.inputs.pop();
-                    let inputTensor = tf.tensor4d([[_this.inputs]], [1, 1, 5, 2]);
+        return this.doAsync(function (resolve, reject) {
+            tf.tidy(() => {
+                if (_this.isDisposed()) {
+                    // don't think if we've already been disposed
+                    reject('disposed');
+                    return;
+                }
+                _this.inputMemory.unshift(input.toArray());
+                _this.inputMemory.pop();
 
-                    // Predict!
-                    let data = Array.from((<tf.Tensor>_this._model.predict(inputTensor)).dataSync());
-                    let output = new AntBrain.Output();
-                    output.left = data[0];
-                    output.right = data[1];
+                // flatten the inputs
+                let values = [].concat(..._this.inputMemory);
+                // Predict!
+                let tensor = tf.tensor2d(values, [1, _this.memorySize * AntBrain.Input.size]);
+                let prediction = <tf.Tensor>_this._model.predict(tensor, {batchSize: 1});
 
-                    // do something with the output
-                    resolve(output);
-                })
-            }, 0);
+                let data = Array.from(prediction.dataSync());
+
+                let output = new AntBrain.Output();
+                output.left = data[0];
+                output.right = data[1];
+
+                // do something with the output
+                resolve(output);
+            })
         });
     }
 
-    /*
-      model.weights.forEach(w => {
-        const newVals = tf.randomNormal(w.shape);
-        // w.val is an instance of tf.Variable
-        w.val.assign(newVals);
-      });
-   */
+    // TODO: user web workers to be truly async
+    private doAsync<T>(func: (resolve: (args?: any) => any, reject: (args?: any) => any) => void): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            // schedule it to run later...
+            setTimeout(func, 0, resolve, reject);
+        });
+    }
+
     public breed(mate: AntBrain): AntBrain {
         console.log('breed:', tf.memory());
-        let antBrain = new AntBrain();
+        let antBrain = new AntBrain(this.memorySize);
         tf.tidy(() => {
             let p1 = this._model.getWeights();
             let p2 = mate._model.getWeights();
@@ -116,7 +144,7 @@ class AntBrain {
      */
     public mutate(mutationRate: number): AntBrain {
 
-        let antBrain = new AntBrain();
+        let antBrain = new AntBrain(this.memorySize);
         tf.tidy(() => {
             let weights = this._model.getWeights();
             let weightCount = 0;
@@ -152,7 +180,7 @@ class AntBrain {
     }
 
     private logWeights(tag: string, antBrain: AntBrain) {
-        if (false) {
+        if (DEBUG_WEIGHTS) {
             for (let i = 0; i < antBrain._model.weights.length; ++i) {
                 let out: string[] = [];
                 let w = antBrain._model.weights[i];
@@ -178,16 +206,40 @@ class AntBrain {
         return this._model;
     }
 
+    public clone(): AntBrain {
+        // Copy the brain with no mutation
+        return this.mutate(0);
+    }
 }
 
 namespace AntBrain {
+    // configure TensorFlow
+    tf.setBackend('cpu').catch((reason) => {
+        console.log(reason);
+    });
 
     export class Input {
-        antennaRight: number
-        antennaLeft: number
+        // TODO: Some better way to determine this size...
+        static size = 2;
+
+        // Sensor<>
+        antennaRight: number = 0;
+        antennaLeft: number = 0;
+
+        // TODO: add inputs
+        // health: number
+
+        toArray(): number[] {
+            return [this.antennaLeft, this.antennaRight];
+        }
     }
 
+    /**
+     * The brain's output
+     */
     export class Output {
+        static size = 2;
+
         left: number
         right: number
     }
