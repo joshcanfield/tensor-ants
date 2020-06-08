@@ -43,11 +43,12 @@ export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite
     }
 
     update(time: any, delta: any): void {
-        super.update(time, delta);
-        this.anims.update(time, delta);
         // move with the ant
         this.x = this.ant.x;
         this.y = this.ant.y;
+
+        super.update(time, delta);
+        this.anims.update(time, delta);
     }
 
     public setFrameRate(frameRate: number): void {
@@ -158,6 +159,8 @@ export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite
     relocate(x: number, y: number) {
         this.ant.x = x;
         this.ant.y = y;
+        this.x = x;
+        this.y = y;
     }
 
 }

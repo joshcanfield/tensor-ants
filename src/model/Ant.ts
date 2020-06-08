@@ -71,14 +71,19 @@ class Ant extends Mixin(Moveable, HealthMixin, EventMixin) {
 }
 
 namespace Ant {
-    Ant.register(HealthMixin.Event.onDeath, (_self) => {
+    Ant.register(HealthMixin.Event.onDeath, (_self: Ant) => {
         _self.activity = Ant.Activity.CRIT_DIE;
         _self.moveable = false;
         return true;
     });
 
-    Ant.register(Moveable.Event.afterMove, (_self, distance) => {
-        _self.consume(distance / 10);
+    Ant.register(HealthMixin.Event.onRevive, (_self: Ant) => {
+        _self.moveable = true;
+        return true;
+    });
+
+    Ant.register(Moveable.Event.afterMove, (_self: Ant, distance) => {
+        _self.consumeHealth(distance / 10);
         return true;
     })
 

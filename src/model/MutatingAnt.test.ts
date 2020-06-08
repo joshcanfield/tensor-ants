@@ -40,10 +40,10 @@ test('breedWith creates new ant/brain', () => {
     bred.dispose();
 })
 
-test('after clone has move trigger', () => {
+test('cloned ants health trigger still fires', () => {
     let ant = MutatingAnt.create();
     let mutant = ant.mutate(10);
     expect(mutant.moveable).toBeTruthy()
-    mutant.health = -1;
+    mutant.consumeHealth(mutant.maxHealth);
     expect(mutant.moveable).toBeFalsy()
 })

@@ -6,13 +6,13 @@ import Activity = Ant.Activity;
 // verifies the mixins are working
 test('ant health', () => {
     let ant = new Ant(Activity.ATTACK, Direction.DOWN, 100);
-    ant.health -= 10;
+    ant.consumeHealth(10);
     expect(ant.health).toBe(90);
 })
 
 test('ant death goes to dead activity', () => {
     let ant = new Ant(Activity.ATTACK, Direction.DOWN, 100);
-    ant.health -= 100;
+    ant.consumeHealth(100);
     expect(ant.health).toBe(0);
     expect(ant.activity).toBe(Activity.CRIT_DIE);
     expect(ant.isAlive()).toBe(false);

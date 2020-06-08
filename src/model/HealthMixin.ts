@@ -10,8 +10,25 @@ class HealthMixin extends Mixin(EventMixin) {
     private _maxHealth: number;
     private _health: number;
 
-    public consume(points: number): void {
-        this.health = this.health - points;
+    public consumeHealth(points: number): void {
+        const newHealth = this._health - points;
+        if (newHealth <= 0) {
+            this._health = 0;
+            this.trigger(HealthMixin.Event.onDeath, newHealth);
+        } else {
+            this._health = newHealth;
+        }
+    }
+
+    public restoreHealth(points: number): void {
+        let startingHealth = this._health;
+        this._health += points;
+        if (this._health > this._maxHealth) {
+            this._health = this._maxHealth;
+        }
+        if (startingHealth === 0 && points > 0) {
+            this.trigger(HealthMixin.Event.onRevive, this._health);
+        }
     }
 
     public isAlive(): boolean {
@@ -26,15 +43,6 @@ class HealthMixin extends Mixin(EventMixin) {
         return this._health;
     }
 
-    set health(value: number) {
-        if (value <= 0) {
-            this._health = 0;
-            this.trigger(HealthMixin.Event.onDeath);
-        } else {
-            this._health = value;
-        }
-    }
-
     get maxHealth(): number {
         return this._maxHealth;
     }
@@ -44,14 +52,15 @@ class HealthMixin extends Mixin(EventMixin) {
     }
 
     static construct(param: HealthMixin, health: number) {
-        param.health = health;
-        param.maxHealth = health;
+        param._health = health;
+        param._maxHealth = health;
     }
 }
 
 namespace HealthMixin {
     export enum Event {
-        onDeath = 'onDeath'
+        onDeath = 'DEATH',
+        onRevive = 'REVIVE',
     }
 }
 

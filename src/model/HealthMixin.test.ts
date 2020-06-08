@@ -18,7 +18,7 @@ class TestHealthMixin extends Mixin(HealthMixin, EventMixin) {
 
 test('tracks health', () => {
     let testClass = new TestHealthMixin(100);
-    testClass.health -= 90;
+    testClass.consumeHealth(90);
     expect(testClass.health).toEqual(10);
     expect(testClass.isAlive()).toBe(true);
     expect(testClass.isDead()).toBe(false);
@@ -27,7 +27,7 @@ test('tracks health', () => {
 
 test('0 health triggers death ', () => {
     let testClass = new TestHealthMixin(100);
-    testClass.health -= 100;
+    testClass.consumeHealth(100);
     expect(testClass.health).toEqual(0);
     expect(testClass.isAlive()).toBe(false);
     expect(testClass.isDead()).toBe(true);
@@ -37,7 +37,7 @@ test('0 health triggers death ', () => {
 
 test('negative health triggers death and sets health to zero', () => {
     let testClass = new TestHealthMixin(100);
-    testClass.health -= 110;
+    testClass.consumeHealth(110);
     expect(testClass.health).toEqual(0);
     expect(testClass.isAlive()).toBe(false);
     expect(testClass.isDead()).toBe(true);
