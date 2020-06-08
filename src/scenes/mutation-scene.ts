@@ -87,7 +87,7 @@ export default class MutationScene extends Phaser.Scene {
             let ant = new MutatingAntSprite(this, {
                 x: startX,
                 y: startY,
-                texture: i == 0 ? AntSprite.Skin.ICE_ANT : AntSprite.Skin.FIRE_ANT
+                texture: i == 0 ? AntSprite.Skin.ICE_ANT : AntSprite.Skin.ANT_LION
             });
             this.antGroup.add(ant, true);
             ant.setDepth(CREATURE_LAYER);
