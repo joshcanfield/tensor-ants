@@ -90,7 +90,7 @@ export default class MutatingAntSprite extends AntSprite<MutatingAnt> {
     protected preUpdate(time: number, delta: number): void {
         this.play();
         super.update(time, delta);
-        if (this.ant.isDead() && this.fadeTween.isPaused()) {
+        if (this.ant.isDead() && this.fadeTween.paused) {
             this.fadeTween.play();
         }
 
