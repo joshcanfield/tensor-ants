@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@tensorflow/tfjs": "^1.7.1",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "phaser": "^3.22.0",
     "synaptic": "^1.1.4",
     "ts-mixer": "^5.2.1"
