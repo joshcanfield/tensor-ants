@@ -8,36 +8,36 @@
   "license": "ISC",
   "scripts": {
     "build": "webpack --config webpack/prod.js ",
-    "start": "webpack-dev-server --config webpack/base.js",
+    "start": "webpack serve --config webpack/base.js",
     "test": "jest"
   },
   "devDependencies": {
-    "@babel/core": "^7.9.0",
-    "@babel/preset-env": "^7.9.0",
-    "@babel/preset-typescript": "^7.9.0",
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
+    "@babel/preset-typescript": "^7.12.7",
     "@jest/globals": "^25.5.2",
-    "@types/jest": "^25.2.1",
-    "@types/lodash": "^4.14.149",
+    "@types/jest": "^25.2.3",
+    "@types/lodash": "^4.14.165",
     "canvas": "^2.6.1",
     "clean-webpack-plugin": "^3.0.0",
     "file-loader": "^5.1.0",
-    "html-webpack-plugin": "^3.2.0",
+    "html-webpack-plugin": "^4.5.0",
     "jest": "^25.5.4",
-    "raw-loader": "^4.0.0",
-    "terser-webpack-plugin": "^2.3.5",
-    "ts-jest": "^25.4.0",
+    "raw-loader": "^4.0.2",
+    "terser-webpack-plugin": "^2.3.8",
+    "ts-jest": "^25.5.1",
     "ts-loader": "^6.2.2",
-    "typescript": "^3.8.3",
-    "webpack": "^4.42.1",
-    "webpack-cli": "^3.3.11",
+    "typescript": "^3.9.7",
+    "webpack": "^5.11.0",
+    "webpack-cli": "^4.2.0",
     "webpack-dev-server": "^3.11.0",
     "webpack-merge": "^4.2.2"
   },
   "dependencies": {
-    "@tensorflow/tfjs": "^1.7.1",
-    "lodash": "^4.17.15",
-    "phaser": "^3.22.0",
+    "@tensorflow/tfjs": "^2.7.0",
+    "lodash": "^4.17.20",
+    "phaser": "^3.50.1",
     "synaptic": "^1.1.4",
-    "ts-mixer": "^5.2.1"
+    "ts-mixer": "^5.4.0"
   }
 }

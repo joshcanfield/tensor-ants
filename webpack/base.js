@@ -43,7 +43,6 @@ module.exports = {
         extensions: ['.ts', '.tsx', '.js'],
     },
     plugins: [
-        new webpack.HashedModuleIdsPlugin(), // so that file hashes don't change unexpectedly
         new CleanWebpackPlugin(),
         new webpack.DefinePlugin({
             CANVAS_RENDERER: "true",
@@ -54,6 +53,7 @@ module.exports = {
         })
     ],
     optimization: {
+        moduleIds: 'deterministic',
         runtimeChunk: 'single',
         splitChunks: {
             chunks: 'all',

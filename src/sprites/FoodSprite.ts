@@ -9,7 +9,7 @@ export default class FoodSprite extends AntSprite<Ant> {
         this.ant = new Ant(Activity.CRIT_DIE, Direction.RIGHT, 100);
         this.ant.x = x;
         this.ant.y = y;
-        this.play();
+        this.animate();
     }
 
 }

@@ -55,7 +55,7 @@ export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite
         this.anims.msPerFrame = 1000 / frameRate;
     }
 
-    public play(): AntSprite<T> {
+    public animate(): AntSprite<T> {
         let key = AntSprite.buildAnimKey(this.skin, this._ant.direction, this._ant.activity);
         let currentKey = this.anims?.currentAnim?.key;
         if (currentKey != key) {
@@ -69,7 +69,7 @@ export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite
             return;
         }
         this._ant.direction = dir;
-        this.play();
+        this.animate();
     }
 
     public getActivity(): Ant.Activity {
@@ -81,7 +81,7 @@ export abstract class AntSprite<T extends Ant> extends Phaser.GameObjects.Sprite
             return;
         }
         this._ant.activity = newActivity;
-        this.play();
+        this.animate();
     }
 
     static preload(scene: Scene) {

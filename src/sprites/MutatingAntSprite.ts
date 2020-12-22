@@ -62,7 +62,7 @@ export default class MutatingAntSprite extends AntSprite<MutatingAnt> {
         // Save for later
         this.world = scene.world;
         // We're always moving! Get it started
-        this.play();
+        this.animate();
     }
 
     reset() {
@@ -88,7 +88,7 @@ export default class MutatingAntSprite extends AntSprite<MutatingAnt> {
     }
 
     protected preUpdate(time: number, delta: number): void {
-        this.play();
+        this.animate();
         super.update(time, delta);
         if (this.ant.isDead() && this.fadeTween.paused) {
             this.fadeTween.play();
